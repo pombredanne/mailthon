@@ -1,11 +1,38 @@
 # coding=utf8
 from pytest import fixture
-from mailthon.enclosure import PlainText, HTML, Binary, Attachment
+from mailthon.enclosure import PlainText, HTML, Binary, Attachment, Collection
 from .mimetest import mimetest
 from .utils import unicode
 
 
 fixture = fixture(scope='class')
+
+
+class TestCollection:
+    @fixture
+    def mime(self):
+        coll = Collection(
+            PlainText('1'),
+            PlainText('2'),
+            subtype='alternative',
+            headers={
+                'X-Something': 'value',
+            },
+        )
+        return mimetest(coll.mime())
+
+    def test_default_mimetype(self):
+        mime = mimetest(Collection().mime())
+        assert mime.mimetype == 'multipart/mixed'
+
+    def test_mimetype(self, mime):
+        assert mime.mimetype == 'multipart/alternative'
+
+    def test_payload(self, mime):
+        assert [p.payload for p in mime.parts] == [b'1', b'2']
+
+    def test_headers(self, mime):
+        assert mime['X-Something'] == 'value'
 
 
 class TestPlainText:
@@ -95,7 +122,7 @@ def test_binary_with_encoding():
     b = Binary(
         content=b'something',
         mimetype='image/gif',
-        encoding='utf8',
+        encoding='utf-8',
     )
     mime = mimetest(b.mime())
-    assert mime.encoding == 'utf8'
+    assert mime.encoding == 'utf-8'

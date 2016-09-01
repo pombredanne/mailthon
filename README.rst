@@ -1,15 +1,12 @@
 Mailthon
 ========
 
-**Useful links:** `Documentation`_ | `Issue Tracker`_ | `PyPI Page`_
+**Useful links:** `Documentation`_ (outdated) | `Issue Tracker`_ | `PyPI Page`_
 
-Mailthon is an email library for Python that aims to be highly
-extensible and composable. Mailthon is unicode aware and supports
-internationalised headers and email addresses. Also it aims to be
-highly transport agnostic, meaning that SMTP can be swapped out
-for other transports.
-
-.. code-block:: python
+Mailthon is an MIT licensed email library for Python that aims to be
+highly extensible and composable. Mailthon is unicode aware and supports
+internationalised headers and email addresses. Also it aims to be transport
+agnostic, meaning that SMTP can be swapped out for other transports::
 
     >>> from mailthon import postman, email
     >>> p = postman(host='smtp.gmail.com', auth=('username', 'password'))
@@ -25,13 +22,9 @@ for other transports.
 .. _Issue Tracker: http://github.com/eugene-eeo/mailthon/issues/
 .. _PyPI Page: http://pypi.python.org/pypi/Mailthon
 
-Platforms
----------
-
-+-------------+----------------------------------------------------------------------------------+
-| **Linux**   | .. image:: https://travis-ci.org/eugene-eeo/mailthon.svg?branch=master           |
-|             |     :target: https://travis-ci.org/eugene-eeo/mailthon                           |
-+-------------+----------------------------------------------------------------------------------+
-| **Windows** | .. image:: https://ci.appveyor.com/api/projects/status/eadeytartlka64a1?svg=true |
-|             |     :target: https://ci.appveyor.com/project/eugene-eeo/mailthon                 |
-+-------------+----------------------------------------------------------------------------------+
+.. image:: https://img.shields.io/travis/eugene-eeo/mailthon.svg
+    :target: https://travis-ci.org/eugene-eeo/mailthon
+.. image:: https://ci.appveyor.com/api/projects/status/eadeytartlka64a1?svg=true
+    :target: https://ci.appveyor.com/project/eugene-eeo/mailthon
+.. image:: https://img.shields.io/codecov/c/github/eugene-eeo/mailthon.svg
+    :target: https://codecov.io/gh/eugene-eeo/mailthon

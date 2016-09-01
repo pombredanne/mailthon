@@ -11,10 +11,10 @@ else:
     bytes_type = str
 
 
-@fixture
-def smtp():
+def mocked_smtp(*args, **kwargs):
     smtp = Mock()
     smtp.return_value = smtp
+    smtp(*args, **kwargs)
     smtp.noop.return_value = (250, 'ok')
     smtp.sendmail.return_value = {}
 

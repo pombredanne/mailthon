@@ -24,8 +24,8 @@ def test_format_addresses():
 
 
 def test_stringify_address():
-    assert stringify_address(uni('mail@mail.com')) == uni('mail@mail.com')
-    assert stringify_address(uni('mail@måil.com')) == uni('mail@xn--mil-ula.com')
+    assert stringify_address(uni('mail@mail.com')) == 'mail@mail.com'
+    assert stringify_address(uni('mail@måil.com')) == 'mail@xn--mil-ula.com'
     assert stringify_address(uni('måil@måil.com')) == uni('måil@xn--mil-ula.com')
 
 

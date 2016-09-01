@@ -6,7 +6,7 @@ from setuptools.command.test import test as TestCommand
 class PyTest(TestCommand):
     def finalize_options(self):
         TestCommand.finalize_options(self)
-        self.test_args = ['--strict', '--verbose', '--tb=long', 'tests']
+        self.test_args = ['--strict', '--verbose', '--tb=long', 'tests', '--cov=mailthon']
         self.test_suite = True
 
     def run_tests(self):
@@ -17,11 +17,11 @@ class PyTest(TestCommand):
 
 setup(
     name='mailthon',
-    version='0.1.1',
+    version='0.2.0',
     description='Elegant email library',
     long_description=open('README.rst', 'rb').read().decode('utf8'),
     author='Eeo Jun',
-    author_email='packwolf58@gmail.com',
+    author_email='141bytes@gmail.com',
     url='https://github.com/eugene-eeo/mailthon/',
     classifiers=[
         'Development Status :: 3 - Alpha',
@@ -37,7 +37,12 @@ setup(
     include_package_data=True,
     package_data={'mailthon': ['LICENSE', 'README.rst']},
     packages=['mailthon'],
-    tests_require=['mock', 'pytest', 'pytest-localserver'],
+    tests_require=[
+        'mock',
+        'pytest',
+        'pytest-localserver',
+        'pytest-cov',
+        ],
     cmdclass={'test': PyTest},
     platforms='any',
     zip_safe=False,

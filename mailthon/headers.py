@@ -9,9 +9,8 @@
     :copyright: (c) 2015 by Eeo Jun
     :license: MIT, see LICENSE for details.
 """
-
 import sys
-import cgi
+from cgi import parse_header
 
 from email.utils import quote, formatdate, make_msgid, getaddresses
 from .helpers import format_addresses, UnicodeDict
@@ -80,12 +79,11 @@ class Headers(UnicodeDict):
             if key == 'Bcc' or key == 'Resent-Bcc':
                 continue
             del mime[key]
-            # python 3.* email's compatibility layer will
-            # handle unicode field values in proper way
-            # but python 2.* -- won't (it will encode not
-            # only additional field values but also all
-            # header value)
-            parsed_header, additional_fields = cgi.parse_header(
+            # Python 3.* email's compatibility layer will handle
+            # unicode field values in proper way but Python 2
+            # won't (it will encode not only additional field
+            # values but also all header values)
+            parsed_header, additional_fields = parse_header(
                 self[key] if IS_PY3 else
                 self[key].encode("utf-8")
             )
@@ -105,7 +103,7 @@ def sender(address):
     Generates a Sender header with a given *text*.
     *text* can be both a tuple or a string.
     """
-    yield 'From'
+    yield 'Sender'
     yield format_addresses([address])
 
 
@@ -168,3 +166,8 @@ def message_id(string=None, idstring=None):
     """
     yield 'Message-ID'
     yield string or make_msgid(idstring)
+
+
+def content_id(name):
+    yield 'Content-ID'
+    yield '<%s>' % (name,)

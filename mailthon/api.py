@@ -9,10 +9,9 @@
     :license: MIT, see LICENSE for details.
 """
 
-from mailthon.enclosure import HTML, Attachment
-from mailthon.envelope import Envelope
+from mailthon.enclosure import Collection, HTML, Attachment
 from mailthon.postman import Postman
-from mailthon.middleware import TLS, Auth
+import mailthon.middleware as middleware
 import mailthon.headers as headers
 
 
@@ -20,7 +19,8 @@ def email(sender=None, receivers=(), cc=(), bcc=(),
           subject=None, content=None, encoding='utf8',
           attachments=()):
     """
-    Creates an Envelope object with a HTML *content*.
+    Creates a Collection object with a HTML *content*,
+    and *attachments*.
 
     :param content: HTML content.
     :param encoding: Encoding of the email.
@@ -29,7 +29,8 @@ def email(sender=None, receivers=(), cc=(), bcc=(),
     """
     enclosure = [HTML(content, encoding)]
     enclosure.extend(Attachment(k) for k in attachments)
-    return Envelope(
+    return Collection(
+        *enclosure,
         headers=[
             headers.subject(subject),
             headers.sender(sender),
@@ -38,8 +39,7 @@ def email(sender=None, receivers=(), cc=(), bcc=(),
             headers.bcc(*bcc),
             headers.date(),
             headers.message_id(),
-        ],
-        enclosure=enclosure,
+        ]
     )
 
 
@@ -60,9 +60,9 @@ def postman(host, port=587, auth=(None, None),
     return Postman(
         host=host,
         port=port,
-        options=options,
         middlewares=[
-            TLS(force=force_tls),
-            Auth(*auth),
+            middleware.tls(force=force_tls),
+            middleware.auth(*auth),
         ],
+        **options
     )

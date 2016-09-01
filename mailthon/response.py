@@ -9,48 +9,49 @@
     :license: MIT, see LICENSE for details.
 """
 
-class Response(object):
+from collections import namedtuple
+
+
+_ResponseBase = namedtuple('Response', ['status_code', 'reason'])
+
+
+class Response(_ResponseBase):
     """
     Encapsulates a (status_code, message) tuple
     returned by a server when the ``NOOP``
     command is called.
 
-    :param pair: A (status_code, message) pair.
+    :param status_code: status code returned by server.
+    :param message: error/success message.
     """
-
-    def __init__(self, pair):
-        status, message = pair
-        self.status_code = status
-        self.message = message
 
     @property
     def ok(self):
         """
-        Tells whether the Response object is ok-
-        that everything went well. Returns true
-        if the status code is 250, false otherwise.
+        Returns true if the status code is 250, false
+        otherwise.
         """
         return self.status_code == 250
 
 
-class SendmailResponse(Response):
+class SendmailResponse:
     """
-    Encapsulates a (status_code, message) tuple
+    Encapsulates a (status_code, reason) tuple
     as well as a mapping of email-address to
-    (status_code, message) tuples that can be
+    (status_code, reason) tuples that can be
     attained by the NOOP and the SENDMAIL
     command.
 
     :param pair: The response pair.
     :param rejected: Dictionary of rejected
-        addresses to status-code message pairs.
+        addresses to status-code reason pairs.
     """
 
-    def __init__(self, pair, rejected):
-        Response.__init__(self, pair)
+    def __init__(self, status_code, reason, rejected):
+        self.res = Response(status_code, reason)
         self.rejected = {}
         for addr, pair in rejected.items():
-            self.rejected[addr] = Response(pair)
+            self.rejected[addr] = Response(*pair)
 
     @property
     def ok(self):
@@ -58,5 +59,4 @@ class SendmailResponse(Response):
         Returns True only if no addresses were
         rejected and if the status code is 250.
         """
-        return (Response.ok.fget(self) and
-                not self.rejected)
+        return self.res.ok and not self.rejected

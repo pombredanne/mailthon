@@ -3,7 +3,9 @@
 import pytest
 from mock import Mock, call
 import mailthon.headers
-from mailthon.headers import Headers, cc, to, bcc, sender, message_id, date, content_disposition
+from mailthon.headers import (Headers, cc, to, bcc, sender,
+                              message_id, date, content_id,
+                              content_disposition)
 from .mimetest import blank
 
 
@@ -24,7 +26,8 @@ class TestNotResentHeaders:
                 Headers([content_disposition("attachment", "файл.filename")]))
 
     def test_getitem(self, headers):
-        assert headers['From'] == 'sender@mail.com'
+        assert headers['From'] == 'from@mail.com'
+        assert headers['Sender'] == 'sender@mail.com'
         assert headers['To'] == 'to@mail.com'
 
     def test_sender(self, headers):
@@ -49,7 +52,7 @@ class TestNotResentHeaders:
         assert not mime['Bcc']
         assert mime['Cc'] == 'cc1@mail.com, cc2@mail.com'
         assert mime['To'] == 'to@mail.com'
-        assert mime['From'] == 'sender@mail.com'
+        assert mime['Sender'] == 'sender@mail.com'
 
     def test_content_disposition_headers(self, content_disposition_headers):
         """
@@ -111,18 +114,19 @@ class TestResentHeaders(TestNotResentHeaders):
 @pytest.mark.parametrize('function', [to, cc, bcc])
 def test_tuple_headers(function):
     _, value = function(
-        ('From', 'sender@mail.com'),
+        ('Sender', 'sender@mail.com'),
         'Me <me@mail.com>',
     )
-    expected = 'From <sender@mail.com>, Me <me@mail.com>'
+    expected = 'Sender <sender@mail.com>, Me <me@mail.com>'
     assert value == expected
 
 
 @pytest.mark.parametrize('argtype', [str, tuple])
 def test_sender_tuple(argtype):
-    param = ('name', 'mail@mail.com')
-    if argtype is str:
-        param = '{0} <{1}>'.format(*param)
+    param = (
+        'name <mail@mail.com>' if argtype is str else
+        ('name', 'mail@mail.com')
+    )
     _, value = sender(param)
     assert value == 'name <mail@mail.com>'
 
@@ -143,3 +147,7 @@ def test_date():
     assert formatdate.mock_calls == [call(localtime=True)]
 
     assert tuple(date('time')) == ('Date', 'time')
+
+
+def test_content_id():
+    assert dict([content_id('l')]) == {'Content-ID': '<l>'}

@@ -14,39 +14,71 @@ from .response import SendmailResponse
 from .helpers import stringify_address
 
 
+class Session(object):
+    """
+    Represents a connection to some server or external
+    service, e.g. some REST API. The underlying transport
+    defaults to SMTP but can be subclassed.
+
+    :param **kwargs: Keyword arguments to be passed to
+        the underlying transport.
+    """
+
+    def __init__(self, **kwargs):
+        self.conn = SMTP(**kwargs)
+        self.conn.ehlo()
+
+    def teardown(self):
+        """
+        Tear down the connection.
+        """
+        self.conn.quit()
+
+    def send(self, envelope):
+        """
+        Send an *envelope* which may be an envelope
+        or an enclosure-like object, see
+        :class:`~mailthon.enclosure.Enclosure` and
+        :class:`~mailthon.envelope.Envelope`, and
+        returns a :class:`~mailthon.response.SendmailResponse`
+        object.
+        """
+        rejected = self.conn.sendmail(
+            stringify_address(envelope.sender),
+            [stringify_address(k) for k in envelope.receivers],
+            envelope.string(),
+        )
+        status_code, reason = self.conn.noop()
+        return SendmailResponse(
+            status_code,
+            reason,
+            rejected,
+        )
+
+
 class Postman(object):
     """
-    Encapsulates a connection to a server and knows
-    how to send MIME emails over a certain transport.
-    When subclassing, change the ``transport`` and
-    ``response_cls`` class variables to tweak the
-    transport used and the response class, respectively.
+    Encapsulates a connection to a server, created by
+    some *session* class and provides middleware
+    management and setup/teardown goodness. Basically
+    is a layer of indirection over session objects,
+    allowing for pluggable transports.
 
-    :param host: The address to a server.
-    :param port: Port to connect to.
-    :param middlewares: An iterable of middleware that
-        will be used by the Postman.
-    :param options: Dictionary of options to be passed
-        to the underlying transport.
+    :param session: Session class to be used.
+    :param middleware: Middlewares to use.
+    :param **kwargs: Options to pass to session class.
     """
 
-    transport = SMTP
-    response_cls = SendmailResponse
-
-    def __init__(self, host, port, middlewares=(), options=None):
-        self.host = host
-        self.port = port
+    def __init__(self, session=Session, middlewares=(), **options):
+        self.session = session
+        self.options = options
         self.middlewares = list(middlewares)
-        self.options = options or {}
 
     def use(self, middleware):
         """
         Use a certain callable *middleware*, i.e.
         append it to the list of middlewares, and
         return it so it can be used as a decorator.
-        Note that the *middleware* is added to the
-        end of the middlewares list, so it will be
-        called last.
         """
         self.middlewares.append(middleware)
         return middleware
@@ -55,37 +87,20 @@ class Postman(object):
     def connection(self):
         """
         A context manager that returns a connection
-        to the server using some transport, defaulting
-        to SMTP. The transport will be called with
-        the server address, port, and options that have
-        been passed to the constructor, in that order.
+        to the server using some *session*.
         """
-        conn = self.transport(self.host, self.port, **self.options)
+        conn = self.session(**self.options)
         try:
-            conn.ehlo()
             for item in self.middlewares:
                 item(conn)
             yield conn
         finally:
-            conn.quit()
-
-    def deliver(self, conn, envelope):
-        """
-        Deliver an *envelope* using a given connection
-        *conn*, and return the response object. Does
-        not close the connection.
-        """
-        rejected = conn.sendmail(
-            stringify_address(envelope.mail_from),
-            [stringify_address(k) for k in envelope.receivers],
-            envelope.string(),
-        )
-        return self.response_cls(conn.noop(), rejected)
+            conn.teardown()
 
     def send(self, envelope):
         """
-        Sends an *envelope* and return a response
+        Sends an *enclosure* and return a response
         object.
         """
         with self.connection() as conn:
-            return self.deliver(conn, envelope)
+            return conn.send(envelope)

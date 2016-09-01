@@ -1,83 +1,97 @@
+from mock import call, Mock
 from pytest import fixture
-from mock import Mock, call
-from mailthon.postman import Postman
-from mailthon.envelope import Envelope
 from mailthon.enclosure import PlainText
-from mailthon.headers import sender, to, subject
-from .utils import smtp
+from mailthon.postman import Session, Postman
+from mailthon.response import SendmailResponse
+from .utils import mocked_smtp, unicode
+
+
+class FakeSession(Session):
+    def __init__(self, **kwargs):
+        self.opts = kwargs
+        self.conn = mocked_smtp(**kwargs)
 
 
 @fixture
-def envelope():
-    env = Envelope(
-        headers=[sender('Me <me@mail.com>'),
-                 to('him@mail.com'),
-                 subject('subject')],
-        enclosure=[PlainText('Hi!')],
+def enclosure():
+    env = PlainText(
+        headers={
+            'Sender': unicode('sender@mail.com'),
+            'To': unicode('addr1@mail.com, addr2@mail.com'),
+        },
+        content='Hi!',
     )
-    env.string = Mock(return_value='--email--')
+    env.string = Mock(return_value='--string--')
     return env
 
 
-class TestPostman:
-    host = 'host'
-    port = 1000
-
+class TestSession:
     @fixture
-    def postman(self, smtp):
-        p = Postman(self.host, self.port)
-        p.transport = smtp
-        return p
+    def session(self):
+        return FakeSession(host='host',
+                           port=1000)
 
-    @fixture(params=[0, 1])
-    def failures(self, request, smtp):
-        failures = request.param
-        if failures:
-            smtp.sendmail.return_value = {'addr': (255, 'reason')}
-            smtp.noop.return_value = (250, 'ok')
-        return failures
+    def test_teardown(self, session):
+        session.teardown()
+        assert session.conn.mock_calls[-1] == call.quit()
 
-    def test_connection(self, postman, smtp):
-        with postman.connection() as conn:
-            assert conn is smtp
-            assert conn.mock_calls == [
-                call(self.host, self.port),
-                call.ehlo(),
-            ]
-        assert conn.closed
+    def test_send(self, session, enclosure):
+        smtp = session.conn
+        smtp.sendmail.return_value = {}
+        smtp.noop.return_value = (250, 'ok')
 
-    def test_deliver_with_failures(self, postman, envelope, failures):
-        with postman.connection() as conn:
-            r = postman.deliver(conn, envelope)
-            if failures:
-                assert not r.ok
-                assert r.rejected
-            else:
-                assert not r.rejected
-                assert r.ok
+        response = session.send(enclosure)
+        sendmail = call.sendmail(
+            'sender@mail.com',
+            ['addr1@mail.com', 'addr2@mail.com'],
+            '--string--',
+        )
+        assert sendmail in session.conn.mock_calls
+        assert response.ok
 
-    def test_deliver_mocked_calls(self, postman, envelope):
-        with postman.connection() as conn:
-            postman.deliver(conn, envelope)
-            sendmail = call.sendmail(
-                envelope.sender,
-                envelope.receivers,
-                envelope.string(),
+    def test_send_with_failures(self, session, enclosure):
+        rejected = {'addr': (255, 'reason')}
+        smtp = session.conn
+        smtp.sendmail.return_value = rejected
+        smtp.noop.return_value = (250, 'ok')
+
+        response = session.send(enclosure)
+        assert not response.ok
+
+
+class TestPostman:
+    @fixture
+    def postman(self):
+        def config(**kwargs):
+            session.opts = kwargs
+            return session
+
+        session = Mock(spec=Session)
+        session.side_effect = config
+        session.send.return_value = SendmailResponse(250, 'ok', {})
+
+        return Postman(
+            session=session,
+            host='host',
+            port=1000,
             )
-            ehlo = call.ehlo()
-            conn.assert_has_calls(
-                [sendmail, ehlo],
-                any_order=True,
-            )
 
-    def test_send(self, postman, envelope, smtp):
-        deliver = postman.deliver = Mock()
-        postman.send(envelope)
-        assert deliver.mock_calls == [call(smtp, envelope)]
+    def test_connection(self, postman):
+        with postman.connection() as session:
+            mc = session.mock_calls
+            assert session.opts == {'host': 'host', 'port': 1000}
+            assert mc == [call(**postman.options)]
+        assert mc[-1] == call.teardown()
 
     def test_use(self, postman):
-        middleware = Mock()
-        postman.use(middleware)
+        func = Mock()
+        assert postman.use(func) is func
 
-        with postman.connection() as conn:
-            assert middleware.mock_calls == [call(conn)]
+        with postman.connection() as session:
+            assert func.mock_calls == [call(session)]
+
+    def test_send(self, postman, enclosure):
+        r = postman.send(enclosure)
+        assert call.send(enclosure) in postman.session.mock_calls
+        assert r.ok
+        assert not r.rejected
